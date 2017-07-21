@@ -4,8 +4,9 @@
 import tinify
 import os, sys
 from datetime import datetime
-
-tinify.key = 'YOUR API KEY'
+from concurrent.futures import ThreadPoolExecutor
+max_workers = 4
+tinify.key = 'API_KEY'
 
 in_path = os.path.dirname(__file__)
 out_path = os.path.join(in_path, 'compressed')
@@ -15,8 +16,7 @@ counter = 0
 def log(log_msg):
     timestamp = datetime.now().strftime('%d.%m.%Y %H:%M')
     string = '%s  %s \n' % (timestamp, log_msg)
-    string = string
-    with open(log_file, encoding='utf-8', mode='a') as f:
+    with open(log_file, mode='a') as f:
         f.write(string)
 
 def get_queue():
@@ -48,7 +48,7 @@ def compress(fname):
         source = tinify.from_file(os.path.join(in_path, fname))
         resized = source.resize(
         method="scale",
-        width=1000,
+        width=1600,
         )
         resized.to_file(os.path.join(out_path, fname))
         global counter
@@ -66,12 +66,13 @@ def compress(fname):
         log('Error message: %s' % e)
         sys.exit(0)
     except Exception as e:
-        log('Error message: %s' % e)
-        sys.exit(0)
+        log('Error: %s (%s)' % (e, fname))
+        pass
 
 
 if __name__ == "__main__":
     uncompressed = get_queue()
     total = len(uncompressed)
-    for fname in uncompressed:
-        compress(fname)
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        for fname in sorted(uncompressed, reverse=True):
+            worker = executor.submit(compress, fname)
